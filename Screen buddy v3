@@ -1,0 +1,256 @@
+name: Build ScreenBuddy APK
+on:
+ workflow_dispatch:
+ push:
+ branches:
+ - main
+ - master
+jobs:
+ build:
+ runs-on: ubuntu-latest
+ steps:
+ - name: Checkout
+ uses: actions/checkout@v4
+ - name: Setup Java
+ uses: actions/setup-java@v4
+ with:
+ distribution: temurin
+ java-version: "17"
+ - name: Setup Gradle
+ uses: gradle/actions/setup-gradle@v4
+ with:
+ gradle-version: "8.10.2"
+ - name: Create project files
+ shell: bash
+ run: |
+ mkdir -p app/src/main/java/com/screenbuddy/app
+ mkdir -p app/src/main/res/drawable
+ mkdir -p app/src/main/res/mipmap-hdpi
+ mkdir -p app/src/main/res/mipmap-mdpi
+ mkdir -p app/src/main/res/mipmap-xhdpi
+ mkdir -p app/src/main/res/mipmap-xxhdpi
+ mkdir -p app/src/main/res/mipmap-xxxhdpi
+ mkdir -p app/src/main/res/values
+ cat > settings.gradle.kts <<'EOF'
+ pluginManagement {
+ repositories {
+ google()
+ mavenCentral()
+ gradlePluginPortal()
+ }
+ }
+ dependencyResolutionManagement {
+ repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+ repositories {
+ google()
+ mavenCentral()
+ }
+ }
+ rootProject.name = "ScreenBuddy"
+ include(":app")
+ EOF
+ cat > build.gradle.kts <<'EOF'
+ plugins {
+ id("com.android.application") version "8.7.3" apply false
+ id("org.jetbrains.kotlin.android") version "2.0.21" apply false
+ }
+ EOF
+ cat > gradle.properties <<'EOF'
+ org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+ android.useAndroidX=true
+ kotlin.code.style=official
+ EOF
+ cat > app/build.gradle.kts <<'EOF' plugins {
+ id("com.android.application")
+ id("org.jetbrains.kotlin.android")
+ }
+ android {
+ namespace = "com.screenbuddy.app"
+ compileSdk = 35
+ defaultConfig {
+ applicationId = "com.screenbuddy.app"
+ minSdk = 23
+ targetSdk = 35
+ versionCode = 1
+ versionName = "1.0"
+ }
+ buildTypes {
+ release {
+ isMinifyEnabled = false
+ proguardFiles(
+ getDefaultProguardFile("proguard-android-optimize.txt"),
+ "proguard-rules.pro"
+ )
+ }
+ }
+ compileOptions {
+ sourceCompatibility = JavaVersion.VERSION_17
+ targetCompatibility = JavaVersion.VERSION_17
+ }
+ kotlinOptions {
+ jvmTarget = "17"
+ }
+ }
+ dependencies {
+ implementation("androidx.core:core-ktx:1.15.0")
+ implementation("androidx.appcompat:appcompat:1.7.0")
+ implementation("com.google.android.material:material:1.12.0")
+ implementation("androidx.activity:activity-ktx:1.10.0")
+ }
+ EOF
+ cat > app/proguard-rules.pro <<'EOF'
+ # ScreenBuddy ProGuard rules
+ EOF
+ cat > app/src/main/res/values/colors.xml <<'EOF'
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+ <color name="black">#000000</color>
+ <color name="white">#FFFFFF</color>
+ <color name="transparent">#00000000</color>
+ </resources>
+ EOF
+ cat > app/src/main/res/values/themes.xml <<'EOF'
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+ <style name="Theme.ScreenBuddy" parent="Theme.Material3.DayNight.NoActionBar">
+ <item name="android:fontFamily">sans</item>
+ <item name="android:windowLightStatusBar">false</item>
+ <item name="android:statusBarColor">@android:color/transparent</item>
+ <item name="android:navigationBarColor">@android:color/black</item>
+ <item name="android:windowActionModeOverlay">true</item>
+ </style>
+ </resources>
+ EOF
+ cat > app/src/main/AndroidManifest.xml <<'EOF'
+ <?xml version="1.0" encoding="utf-8"?>
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ <application
+ android:allowBackup="true"
+ android:label="ScreenBuddy"
+ android:supportsRtl="true"
+ android:theme="@style/Theme.ScreenBuddy">
+ <activity
+ android:name=".MainActivity"
+ android:exported="true">
+ <intent-filter> <action android:name="android.intent.action.MAIN" />
+ <category android:name="android.intent.category.LAUNCHER" />
+ </intent-filter>
+ </activity>
+ </application>
+ </manifest>
+ EOF
+ cat > app/src/main/java/com/screenbuddy/app/MainActivity.kt <<'EOF'
+ package com.screenbuddy.app
+ import android.graphics.Color
+ import android.os.Bundle
+ import android.view.Gravity
+ import android.widget.Button
+ import android.widget.EditText
+ import android.widget.FrameLayout
+ import android.widget.ImageView
+ import android.widget.LinearLayout
+ import android.widget.TextView
+ import androidx.appcompat.app.AppCompatActivity
+ import androidx.core.view.WindowCompat
+ class MainActivity : AppCompatActivity() {
+ override fun onCreate(savedInstanceState: Bundle?) {
+ super.onCreate(savedInstanceState)
+ WindowCompat.setDecorFitsSystemWindows(window, false)
+ val root = FrameLayout(this)
+ root.setBackgroundColor(Color.BLACK)
+ val character = ImageView(this)
+ character.layoutParams = FrameLayout.LayoutParams(
+ FrameLayout.LayoutParams.MATCH_PARENT,
+ FrameLayout.LayoutParams.MATCH_PARENT
+ )
+ character.scaleType = ImageView.ScaleType.CENTER_CROP
+ val imageId = resources.getIdentifier(
+ "screenbuddy",
+ "drawable",
+ packageName
+ )
+ if (imageId != 0) {
+ character.setImageResource(imageId)
+ } else {
+ character.setBackgroundColor(Color.rgb(25, 25, 30))
+ }
+ root.addView(character)
+ val panel = LinearLayout(this)
+ panel.orientation = LinearLayout.VERTICAL
+ panel.setPadding(28, 20, 28, 20)
+ panel.setBackgroundColor(Color.argb(185, 0, 0, 0))
+ val panelParams = FrameLayout.LayoutParams(
+ FrameLayout.LayoutParams.MATCH_PARENT,
+ FrameLayout.LayoutParams.WRAP_CONTENT
+ )
+ panelParams.gravity = Gravity.BOTTOM
+ panelParams.setMargins(20, 0, 20, 35)
+ val message = TextView(this)
+ message.text = "Hi! I'm ScreenBuddy ■"
+ message.textSize = 18f
+ message.setTextColor(Color.WHITE)
+ message.setPadding(5, 5, 5, 12)
+ panel.addView(message)
+ val row = LinearLayout(this)
+ row.orientation = LinearLayout.HORIZONTAL
+ row.gravity = Gravity.CENTER_VERTICAL
+ val input = EditText(this)
+ input.hint = "Talk to ScreenBuddy..."
+ input.setHintTextColor(Color.LTGRAY)
+ input.setTextColor(Color.WHITE)
+ input.setSingleLine(true)
+ input.setBackgroundColor(Color.argb(100, 255, 255, 255))
+ val inputParams = LinearLayout.LayoutParams( 0,
+ 60,
+ 1f
+ )
+ inputParams.setMargins(0, 0, 12, 0)
+ row.addView(input, inputParams)
+ val send = Button(this)
+ send.text = "➤"
+ send.setOnClickListener {
+ val text = input.text.toString().trim()
+ if (text.isNotEmpty()) {
+ message.text = "You: $text"
+ input.setText("")
+ }
+ }
+ row.addView(
+ send,
+ LinearLayout.LayoutParams(70, 60)
+ )
+ panel.addView(row)
+ root.addView(panel, panelParams)
+ val title = TextView(this)
+ title.text = "ScreenBuddy"
+ title.textSize = 16f
+ title.setTextColor(Color.WHITE)
+ title.setBackgroundColor(Color.argb(120, 0, 0, 0))
+ title.setPadding(18, 12, 18, 12)
+ val titleParams = FrameLayout.LayoutParams(
+ FrameLayout.LayoutParams.WRAP_CONTENT,
+ FrameLayout.LayoutParams.WRAP_CONTENT
+ )
+ titleParams.gravity = Gravity.TOP or Gravity.START
+ titleParams.setMargins(18, 45, 0, 0)
+ root.addView(title, titleParams)
+ setContentView(root)
+ }
+ }
+ EOF
+ - name: Check character image
+ shell: bash
+ run: |
+ if [ -f "app/src/main/res/drawable/screenbuddy.jpg" ]; then
+ echo "Character image found."
+ else
+ echo "WARNING: screenbuddy.jpg was not found."
+ echo "The app will still build, but the character image will not appear."
+ fi
+ - name: Build Debug APK
+ run: gradle :app:assembleDebug --stacktrace
+ - name: Upload APK
+ uses: actions/upload-artifact@v4
+ with:
+ name: ScreenBuddy-APK
+ path: app/build/outputs/apk/debug/app-debug.apk
